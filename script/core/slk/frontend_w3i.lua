@@ -56,20 +56,20 @@ function mt:add_head(chunk, version)
                 [3] = self:unpack 'l',
                 [4] = self:unpack 'l',
             },
-            [lang.w3i.MAP_NAME]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.AUTHOR_NAME]  = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.MAP_DESC]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.PLAYER_DESC]  = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.MAP_NAME]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.AUTHOR_NAME]  = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.MAP_DESC]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.PLAYER_DESC]  = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
     else
         chunk[lang.w3i.MAP] = {
             [lang.w3i.FILE_VERSION] = version,
             [lang.w3i.MAP_VERSION]  = self:unpack 'l',
             [lang.w3i.WE_VERSION]   = self:unpack 'l',
-            [lang.w3i.MAP_NAME]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.AUTHOR_NAME]  = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.MAP_DESC]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.PLAYER_DESC]  = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.MAP_NAME]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.AUTHOR_NAME]  = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.MAP_DESC]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.PLAYER_DESC]  = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
     end
     
@@ -114,19 +114,19 @@ function mt:add_head(chunk, version)
     if version >= 25 then
         chunk[lang.w3i.LOADING_SCREEN] = {
             [lang.w3i.ID]       = self:unpack 'l',
-            [lang.w3i.PATH]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TEXT]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TITLE]    = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.SUBTITLE] = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.PATH]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TEXT]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TITLE]    = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.SUBTITLE] = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
 
         chunk[lang.w3i.CONFIG][lang.w3i.GAME_DATA_SETTING] = self:unpack 'l'
     
         chunk[lang.w3i.PROLOGUE] = {
-            [lang.w3i.PATH]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TEXT]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TITLE]    = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.SUBTITLE] = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.PATH]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TEXT]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TITLE]    = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.SUBTITLE] = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
     
         chunk[lang.w3i.FOG] = {
@@ -139,7 +139,7 @@ function mt:add_head(chunk, version)
         
         chunk[lang.w3i.ENVIRONMENT] = {
             [lang.w3i.WEATHER]     = self:unpack 'c4',
-            [lang.w3i.SOUND]       = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.SOUND]       = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
             [lang.w3i.LIGHT]       = self:unpack 'c1',
             [lang.w3i.WATER_COLOR] = pack(self:unpack 'BBBB'),
         }
@@ -157,16 +157,16 @@ function mt:add_head(chunk, version)
     elseif version == 18 then
         chunk[lang.w3i.LOADING_SCREEN] = {
             [lang.w3i.ID]          = self:unpack 'l',
-            [lang.w3i.TEXT]        = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TITLE]       = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.SUBTITLE]    = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TEXT]        = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TITLE]       = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.SUBTITLE]    = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
 
         chunk[lang.w3i.PROLOGUE] = {
             [lang.w3i.ID]          = self:unpack 'l',
-            [lang.w3i.TEXT]     = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.TITLE]    = w2l:load_wts(self.wts, (self:unpack 'z')),
-            [lang.w3i.SUBTITLE] = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TEXT]     = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.TITLE]    = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.SUBTITLE] = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
     end
 end
@@ -182,7 +182,7 @@ function mt:add_player(chunk, version)
             [lang.w3i.TYPE]               = self:unpack 'l',
             [lang.w3i.RACE]               = self:unpack 'l',
             [lang.w3i.FIX_START_POSITION] = self:unpack 'l',
-            [lang.w3i.NAME]               = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.NAME]               = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
             [lang.w3i.START_POSITION]     = pack(self:unpack 'ff'),
             [lang.w3i.ALLY_LOW_FLAG]      = unpack_flag(self:unpack 'L'),
             [lang.w3i.ALLY_HIGH_FLAG]     = unpack_flag(self:unpack 'L'),
@@ -228,7 +228,7 @@ function mt:add_force(chunk)
             [lang.w3i.SHARE_CONTROL] = flag >> 4 & 1,
             [lang.w3i.SHARE_ADVANCE] = flag >> 5 & 1,
             [lang.w3i.PLAYER_LIST]   = self:unpack_player_flag(chunk),
-            [lang.w3i.FORCE_NAME]    = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.FORCE_NAME]    = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
         }
     end
 end
@@ -269,7 +269,7 @@ function mt:add_randomgroup(chunk)
     for i = 1, count do
         chunk[lang.w3i.RANDOM_GROUP..i] = {
             ['ID']                       = self:unpack 'l',
-            [lang.w3i.RANDOM_GROUP_NAME] = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.RANDOM_GROUP_NAME] = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
             [lang.w3i.SETTING]           = {},
         }
         local x = self:unpack 'l'
@@ -293,7 +293,7 @@ function mt:add_randomitem(chunk)
     for i = 1, count do
         chunk[lang.w3i.RANDOM_ITEM..i] = {
             ['ID']                      = self:unpack 'l',
-            [lang.w3i.RANDOM_ITEM_NAME] = w2l:load_wts(self.wts, (self:unpack 'z')),
+            [lang.w3i.RANDOM_ITEM_NAME] = w2l:load_localized_wts(self.wts, (self:unpack 'z')),
             [lang.w3i.SETTING]          = {},
         }
 

@@ -107,7 +107,15 @@ local function computed_value(slk, str, name, field)
 end
 
 local function computed(slk, input, id, key)
-    return input:gsub('<([^>]*)>', function(str) return computed_value(slk, str, id, key) end)
+    if type(input) == 'string' then
+        return input:gsub('<([^>]*)>', function(str) return computed_value(slk, str, id, key) end)
+    elseif type(input) == 'table' then
+        for k, v in pairs(input) do
+            input[k] = computed(slk, v, id, key)
+        end
+        return input
+    end
+    return input
 end
 
 return function(w2l_, slk)

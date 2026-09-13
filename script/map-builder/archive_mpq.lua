@@ -60,7 +60,11 @@ function mt:save(path, w3i, w3f, filecount, args)
         else
             hexs[#hexs+1] = ('c4'):pack('HM3W')
             hexs[#hexs+1] = ('c4'):pack('\0\0\0\0')
-            hexs[#hexs+1] = ('z'):pack(w3i and w3i[lang.w3i.MAP][lang.w3i.MAP_NAME] or '未命名地图')
+            local map_name = w3i and w3i[lang.w3i.MAP][lang.w3i.MAP_NAME] or '未命名地图'
+            if type(map_name) == 'table' then
+                map_name = map_name[1] or map_name['default'] or '未命名地图'
+            end
+            hexs[#hexs+1] = ('z'):pack(map_name)
             hexs[#hexs+1] = ('l'):pack(get_map_flag(w3i))
             hexs[#hexs+1] = ('l'):pack(w3i and get_player_count(w3i) or 233)
         end
@@ -73,8 +77,18 @@ function mt:save(path, w3i, w3f, filecount, args)
     return true
 end
 
+function mt:open_file(name)
+    if not self.handle then
+        return nil
+    end
+    return self.handle:open_file(name)
+end
+
 function mt:close()
-    return self.handle:close()
+    if self.handle then
+        self.handle:close()
+        self.handle = nil
+    end
 end
 
 function mt:extract(name, path)
@@ -95,18 +109,32 @@ function mt:remove_file(name)
     return self.handle:remove_file(name)
 end
 
-function mt:load_file(name)
+function mt:load_file(name, locale)
     if not self.handle then
         return nil
     end
-    return self.handle:load_file(name)
+    return self.handle:load_file(name, locale or 0)
 end
 
-function mt:save_file(name, buf, filetime)
+function mt:save_file(name, buf, filetime, locale)
     if self.read then
         return false
     end
-    return self.handle:save_file(name, buf, filetime)
+    return self.handle:save_file(name, buf, filetime, locale or 0)
+end
+
+function mt:locales(name)
+    if not self.handle then
+        return {}
+    end
+    return self.handle:locales(name)
+end
+
+function mt:load_locale(name, locale)
+    if not self.handle then
+        return nil
+    end
+    return self.handle:load_file(name, locale)
 end
 
 function mt:number_of_files()

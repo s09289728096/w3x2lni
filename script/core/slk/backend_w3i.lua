@@ -28,6 +28,15 @@ end
 
 function mt:get(key)
     local value = self.data[self._current][key]
+    local locale_util = require 'locale_util'
+    if type(value) == 'table' and locale_util.is_localized_table(value) then
+        local def_text = locale_util.get_default_text(value) or ''
+        local loc_map = {}
+        for _, item in ipairs(locale_util.get_locales(value)) do
+            loc_map[item.lcid] = item.text
+        end
+        return self.self:save_localized_wts(self.wts, def_text, loc_map, lang.script.TEXT_IN_W3I)
+    end
     if type(value) == 'string' and #value > 255 then
         value = self.self:save_wts(self.wts, value, lang.script.TEXT_TOO_LONG_IN_W3I)
     end

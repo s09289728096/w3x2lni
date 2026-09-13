@@ -44,7 +44,12 @@ local function is_same(a, b, meta)
     return a == b
 end
 
+local locale_util = require 'locale_util'
+
 local function remove_same_as_slk(meta, key, data, default, obj, ttype)
+    if locale_util.has_any_locale(data) then
+        return
+    end
     local dest = default[key]
     if meta.reforge then
         dest = obj[meta.reforge] or dest
@@ -81,6 +86,9 @@ local function remove_same_as_slk(meta, key, data, default, obj, ttype)
 end
 
 local function remove_same_as_txt(meta, key, data, default, obj, ttype)
+    if locale_util.has_any_locale(data) then
+        return
+    end
     local dest = default[key]
     if meta and meta.reforge then
         dest = obj[meta.reforge] or dest

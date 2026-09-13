@@ -15,6 +15,7 @@ local os_clock = os.clock
 local type = type
 local next = next
 
+local locale_util = require 'locale_util'
 local report
 local w2l
 local metadata
@@ -22,7 +23,37 @@ local keys
 local remove_unuse_object
 local object
 
+local function get_text_for_locale(val, loc_tag)
+    while type(val) == 'table' do
+        if locale_util.is_localized_table(val) then
+            if loc_tag and val[loc_tag] then
+                val = val[loc_tag]
+            else
+                val = locale_util.get_default_text(val)
+            end
+        elseif val[1] ~= nil then
+            val = val[1]
+        elseif val['default'] ~= nil then
+            val = val['default']
+        else
+            local found = false
+            for _, v in pairs(val) do
+                val = v
+                found = true
+                break
+            end
+            if not found then
+                return ''
+            end
+        end
+    end
+    return val
+end
+
 local function to_type(tp, value, reforge)
+    if type(value) == 'table' then
+        value = get_text_for_locale(value, nil)
+    end
     if tp == 0 then
         if not value then
             return nil
@@ -87,12 +118,14 @@ local function get_index_data(tp, l, n, cantcut)
     return table_concat(l, ',')
 end
 
-local function add_data(obj, meta, value, keyval)
+local function add_data(obj, meta, value, keyval, loc_tag)
     local key = meta.field
     if meta.index then
         -- TODO: 有点奇怪的写法
         if meta.index == 1 then
-            local value = get_index_data(meta.type, {obj[meta.key..'_1'], obj[meta.key..'_2']}, 2, true)
+            local v1 = get_text_for_locale(obj[meta.key..'_1'], loc_tag)
+            local v2 = get_text_for_locale(obj[meta.key..'_2'], loc_tag)
+            local value = get_index_data(meta.type, {v1, v2}, 2, true)
             if not value then
                 if meta.cantempty and not meta.reforge then
                     value = ','
@@ -108,7 +141,7 @@ local function add_data(obj, meta, value, keyval)
         if type(value) == 'table' then
             local len = 0
             for n in pairs(value) do
-                if n > len then
+                if type(n) == 'number' and n > len then
                     len = n
                 end
             end
@@ -124,12 +157,13 @@ local function add_data(obj, meta, value, keyval)
                 if i > 1 then
                     key = key .. (i-1)
                 end
-                if value[i] and value[i] ~= '' then
+                local item = get_text_for_locale(value[i], loc_tag)
+                if item and item ~= '' then
                     flag = true
                     if meta.concat then
-                        keyval[#keyval+1] = {key, value[i]}
+                        keyval[#keyval+1] = {key, item}
                     else
-                        keyval[#keyval+1] = {key, to_type(meta.type, value[i])}
+                        keyval[#keyval+1] = {key, to_type(meta.type, item)}
                     end
                 end
             end
@@ -140,10 +174,11 @@ local function add_data(obj, meta, value, keyval)
             if not value then
                 return
             end
+            local item = get_text_for_locale(value, loc_tag)
             if meta.concat then
-                keyval[#keyval+1] = {key, value}
+                keyval[#keyval+1] = {key, item}
             else
-                keyval[#keyval+1] = {key, to_type(meta.type, value)}
+                keyval[#keyval+1] = {key, to_type(meta.type, item)}
             end
         end
         return
@@ -155,10 +190,20 @@ local function add_data(obj, meta, value, keyval)
         return
     end
     if type(value) == 'table' then
-        if #value == 0 then
-            return
+        if not meta['repeat'] and locale_util.is_localized_table(value) then
+            local s = get_text_for_locale(value, loc_tag)
+            value = to_type(meta.type, s, meta.reforge)
+        else
+            local norm = locale_util.normalize_repeated_data(value)
+            if #norm == 0 then
+                return
+            end
+            local list = {}
+            for i = 1, #norm do
+                list[i] = get_text_for_locale(norm[i], loc_tag)
+            end
+            value = get_index_data(meta.type, list, #list, meta.cantcut)
         end
-        value = get_index_data(meta.type, value, #value, meta.cantcut)
     else
         value = to_type(meta.type, value, meta.reforge)
     end
@@ -174,17 +219,21 @@ local function add_data(obj, meta, value, keyval)
     end
 end
 
-local function add_extra_data(keyval, key, data)
+local function add_extra_data(keyval, key, data, loc_tag)
     local len = 0
     for k in pairs(data) do
-        if k > len then
+        if type(k) == 'number' and k > len then
             len = k
         end
     end
     if len == 0 then
         return
     end
-    keyval[#keyval+1] = {key, get_index_data(3, data, len)}
+    local list = {}
+    for i = 1, len do
+        list[i] = get_text_for_locale(data[i], loc_tag)
+    end
+    keyval[#keyval+1] = {key, get_index_data(3, list, len)}
 end
 
 local function sortpairs(tbl)
@@ -201,26 +250,26 @@ local function sortpairs(tbl)
     end
 end
 
-local function create_keyval(obj, txt_obj)
+local function create_keyval(obj, txt_obj, loc_tag)
     local keyval = {}
     for _, key in ipairs(keys) do
         if key ~= 'editorsuffix'
         and key ~= 'editorname' then
-            add_data(obj, metadata[key], obj[key], keyval)
+            add_data(obj, metadata[key], obj[key], keyval, loc_tag)
         end
     end
     if txt_obj then
         for k, v in sortpairs(txt_obj) do
             if k:sub(1, 1) ~= '_' then
-                add_extra_data(keyval, k, v)
+                add_extra_data(keyval, k, v, loc_tag)
             end
         end
     end
     return keyval
 end
 
-local function stringify_obj(str, obj, txt_obj)
-    local keyval = create_keyval(obj, txt_obj)
+local function stringify_obj(str, obj, txt_obj, loc_tag)
+    local keyval = create_keyval(obj, txt_obj, loc_tag)
     if #keyval == 0 then
         return
     end
@@ -262,7 +311,16 @@ local function report_failed(obj, key, tip, info)
 end
 
 local function check_string(s)
-    return type(s) == 'string' and s:find(',', nil, false) and s:find('"', nil, false)
+    if type(s) == 'string' then
+        return s:find(',', nil, false) and s:find('"', nil, false)
+    elseif type(s) == 'table' then
+        for _, sub in pairs(s) do
+            if check_string(sub) then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 local function is_same(a, b)
@@ -358,7 +416,7 @@ local function prebuild_merge(obj, a, b)
         if type(v) == 'table' then
             if type(a[k]) == 'table' then
                 for i, iv in pairs(v) do
-                    if a[k][i] ~= iv then
+                    if not is_same(a[k][i], iv) then
                         report_failed(obj, metadata[k].field, lang.report.TXT_CONFLICT, '--> ' .. a._id)
                         if object[id][k] then
                             object[id][k][i] = iv
@@ -378,7 +436,7 @@ local function prebuild_merge(obj, a, b)
                 end
             end
         else
-            if a[k] ~= v then
+            if not is_same(a[k], v) then
                 report_failed(obj, metadata[k].field, lang.report.TXT_CONFLICT, '--> ' .. a._id)
                 object[id][k] = v
             end
@@ -427,6 +485,39 @@ return function(w2l_, slk, report_, obj)
             prebuild(type, slk[type], txt, list[type])
         end
     end
+
+    local active_locales = {}
+    if slk.wts and slk.wts.locale_marks then
+        for lcid in pairs(slk.wts.locale_marks) do
+            active_locales[lcid] = true
+        end
+    end
+    if slk.wts_locales then
+        for lcid in pairs(slk.wts_locales) do
+            active_locales[lcid] = true
+        end
+    end
+    local function scan_loc(val)
+        if type(val) == 'table' then
+            if locale_util.is_localized_table(val) then
+                for _, info in ipairs(locale_util.get_locales(val)) do
+                    active_locales[info.lcid] = true
+                end
+            else
+                for _, sub in pairs(val) do
+                    scan_loc(sub)
+                end
+            end
+        end
+    end
+    for _, type in ipairs(type_list) do
+        if slk[type] then
+            for _, o in pairs(slk[type]) do
+                scan_loc(o)
+            end
+        end
+    end
+
     local r = {}
     for _, type in ipairs(type_list) do
         update_constant(type)
@@ -434,9 +525,38 @@ return function(w2l_, slk, report_, obj)
         table_sort(list[type])
         for _, name in ipairs(list[type]) do
             local lname = name:lower()
-            stringify_obj(str, txt[lname], slk['txt'][lname])
+            stringify_obj(str, txt[lname], slk['txt'][lname], nil)
         end
         r[type] = table_concat(str, '\r\n')
     end
+
+    if w2l.setting.mode ~= 'lni' and next(active_locales) then
+        local lcids = {}
+        for lcid in pairs(active_locales) do
+            lcids[#lcids+1] = lcid
+        end
+        table.sort(lcids)
+        for _, lcid in ipairs(lcids) do
+            local loc_tag = locale_util.lcid_to_tag(lcid)
+            for _, type in ipairs(type_list) do
+                update_constant(type)
+                local str = {}
+                for _, name in ipairs(list[type]) do
+                    local lname = name:lower()
+                    stringify_obj(str, txt[lname], slk['txt'][lname], loc_tag)
+                end
+                local content = table_concat(str, '\r\n')
+                if #content > 0 then
+                    slk.localized_files = slk.localized_files or {}
+                    slk.localized_files[#slk.localized_files+1] = {
+                        name = w2l.info.txt_out[type],
+                        locale = lcid,
+                        buf = content,
+                    }
+                end
+            end
+        end
+    end
+
     return r
 end

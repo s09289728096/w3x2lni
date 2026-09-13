@@ -421,5 +421,24 @@ return function (w2l_, slk)
         w2l:file_remove('map', 'war3map.wts')
     end
 
+    if w2l.setting.mode ~= 'lni' and slk.wts and slk.wts.locale_marks then
+        slk.localized_files = slk.localized_files or {}
+        local lcids = {}
+        for lcid in pairs(slk.wts.locale_marks) do
+            lcids[#lcids+1] = lcid
+        end
+        table.sort(lcids)
+        for _, lcid in ipairs(lcids) do
+            local loc_content = w2l:refresh_locale_wts(slk.wts, lcid)
+            if loc_content and #loc_content > 0 then
+                slk.localized_files[#slk.localized_files+1] = {
+                    name = 'war3map.wts',
+                    locale = lcid,
+                    buf = loc_content,
+                }
+            end
+        end
+    end
+
     w2l.progress(1)
 end

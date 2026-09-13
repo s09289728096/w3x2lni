@@ -124,6 +124,36 @@ function mt:save_file(name, buf, filetime)
     return true
 end
 
+function mt:locales(name)
+    local locs = {}
+    local loc_dir = self.path / 'locales'
+    if fs.exists(loc_dir) and fs.is_directory(loc_dir) then
+        for entry in fs.pairs(loc_dir) do
+            local filename = entry:filename():string()
+            local lcid = tonumber(filename, 16)
+            if lcid then
+                if fs.exists(entry / name) then
+                    locs[#locs+1] = lcid
+                end
+            end
+        end
+    end
+    table.sort(locs)
+    return locs
+end
+
+function mt:load_locale(name, lcid)
+    local hex = ('%04X'):format(lcid)
+    local f = io.open((self.path / 'locales' / hex / name):string(), 'rb')
+    if not f then
+        f = io.open((self.path / 'locales' / hex:lower() / name):string(), 'rb')
+    end
+    if not f then return nil end
+    local buf = f:read 'a'
+    f:close()
+    return buf
+end
+
 return function (input, read)
     return setmetatable({ path = input, read = read }, mt)
 end

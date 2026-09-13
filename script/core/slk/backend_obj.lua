@@ -60,6 +60,15 @@ local function write_value(meta, level, obj, value)
     elseif tp == 1 or tp == 2 then
         write('c4', float2bin(value)) -- obj 的浮点数用api转换为二进制
     else
+        local locale_util = require 'locale_util'
+        if type(value) == 'table' and locale_util.is_localized_table(value) then
+            local def_text = locale_util.get_default_text(value) or ''
+            local loc_map = {}
+            for _, item in ipairs(locale_util.get_locales(value)) do
+                loc_map[item.lcid] = item.text
+            end
+            value = w2l:save_localized_wts(wts, def_text, loc_map, lang.script.TEXT_IN_OBJ)
+        end
         if type(value) ~= 'string' then
             value = ''
         end
@@ -76,25 +85,22 @@ local function write_value(meta, level, obj, value)
 end
 
 local function write_data(key, obj, data, meta)
-    if meta['repeat'] then
-        if type(data) ~= 'table' then
-            data = {data}
+    local locale_util = require 'locale_util'
+    if not meta['repeat'] then
+        write_value(meta, 0, obj, data)
+        return
+    end
+    data = locale_util.normalize_repeated_data(data)
+    local max_level = 0
+    for level in pairs(data) do
+        if type(level) == 'number' and level > max_level then
+            max_level = level
         end
     end
-    if type(data) == 'table' then
-        local max_level = 0
-        for level in pairs(data) do
-            if level > max_level then
-                max_level = level
-            end
+    for level = 1, max_level do
+        if data[level] ~= nil then
+            write_value(meta, level, obj, data[level])
         end
-        for level = 1, max_level do
-            if data[level] then
-                write_value(meta, level, obj, data[level])
-            end
-        end
-    else
-        write_value(meta, 0, obj, data)
     end
 end
 
@@ -120,16 +126,27 @@ local function write_object(chunk, name, obj)
     table_sort(keys)
 
     local count = 0
+    local locale_util = require 'locale_util'
     for _, key in ipairs(keys) do
         local data = obj[key]
-        if data then
-            if metas[key] then
-                if type(data) == 'table' then
-                    for _ in pairs(data) do
-                        count = count + 1
-                    end
-                else
+        if data ~= nil then
+            local meta = metas[key]
+            if meta then
+                if not meta['repeat'] then
                     count = count + 1
+                else
+                    local norm = locale_util.normalize_repeated_data(data)
+                    local max_level = 0
+                    for level in pairs(norm) do
+                        if type(level) == 'number' and level > max_level then
+                            max_level = level
+                        end
+                    end
+                    for level = 1, max_level do
+                        if norm[level] ~= nil then
+                            count = count + 1
+                        end
+                    end
                 end
             else
                 if type(data) == 'table' then

@@ -1,8 +1,23 @@
 local type = type
+local locale_util = require 'locale_util'
 
 local w2l
 local metadata
 local slk_type
+
+local function check_repeat(obj, key, meta)
+    if not obj[key] or not meta['repeat'] then
+        return
+    end
+    if type(obj[key]) ~= 'table' then
+        obj[key] = {obj[key]}
+    elseif locale_util.is_localized_table(obj[key]) then
+        local def = obj[key][1] or obj[key]['default']
+        if type(def) ~= 'table' then
+            obj[key] = {obj[key]}
+        end
+    end
+end
 
 local function update_obj(ttype, name, obj, data)
     local parent = obj._parent
@@ -10,15 +25,11 @@ local function update_obj(ttype, name, obj, data)
     local code = temp._code
     obj._code = code
     for key, meta in pairs(metadata[ttype]) do
-        if obj[key] and meta['repeat'] and type(obj[key]) ~= 'table' then
-            obj[key] = {obj[key]}
-        end
+        check_repeat(obj, key, meta)
     end
     if metadata[code] then
         for key, meta in pairs(metadata[code]) do
-            if obj[key] and meta['repeat'] and type(obj[key]) ~= 'table' then
-                obj[key] = {obj[key]}
-            end
+            check_repeat(obj, key, meta)
         end
     end
 end

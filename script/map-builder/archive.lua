@@ -17,7 +17,47 @@ function mt:is_readonly()
 end
 
 function mt:save_file(name, buf, filetime)
+    -- StormLib owns these generated archive members.
+    local lower = name:lower()
+    if self:get_type() == 'mpq' and
+        (lower == '(listfile)' or lower == '(attributes)' or lower == '(signature)') then
+        return true
+    end
     return self.handle:save_file(name, buf, filetime)
+end
+
+function mt:locales(name)
+    if self.handle and self.handle.locales then
+        return self.handle:locales(name)
+    end
+    return {}
+end
+
+function mt:load_locale(name, locale)
+    if self.handle and self.handle.load_locale then
+        return self.handle:load_locale(name, locale)
+    end
+    return nil
+end
+
+function mt:localized_count()
+    if self:get_type() ~= 'mpq' then return 0 end
+    local count = 0
+    local listfile = self:get('(listfile)')
+    if listfile then
+        local seen = {}
+        for name in listfile:gmatch('[^\r\n]+') do
+            local lname = name:lower()
+            if not seen[lname] then
+                seen[lname] = true
+                local locs = self:locales(name)
+                if #locs > 1 then
+                    count = count + (#locs - 1)
+                end
+            end
+        end
+    end
+    return count
 end
 
 function mt:close()
@@ -38,6 +78,7 @@ function mt:save(w3i, w3f, w2l, args)
     for _ in pairs(self) do
         max = max + 1
     end
+    max = max + #(self.localized or {})
     local suc, res = self.handle:save(self.path, w3i, w3f, max, args)
     if not suc then
         return false, res
@@ -45,11 +86,13 @@ function mt:save(w3i, w3f, w2l, args)
     local clock = os_clock()
     local count = 0
     for name, buf in pairs(self) do
+        local ok, err
         if args.clear_time then
-            self:save_file(name, buf, 0)
+            ok, err = self:save_file(name, buf, 0)
         else
-            self:save_file(name, buf)
+            ok, err = self:save_file(name, buf)
         end
+        if not ok then return false, err or ('Cannot save ' .. name) end
         count = count + 1
         if os_clock() - clock > 0.1 then
             clock = os_clock()
@@ -60,6 +103,16 @@ function mt:save(w3i, w3f, w2l, args)
                 w2l.messager.text(lang.script.EXPORT_FILE:format(count, max))
             end
         end
+    end
+    for _, entry in ipairs(self.localized or {}) do
+        local ok, err
+        if self:get_type() == 'mpq' then
+            ok, err = self.handle:save_file(entry.name, entry.buf,
+                args.clear_time and 0 or nil, entry.locale)
+        else
+            ok, err = self:save_file(require('map-builder.locales').path(entry), entry.buf)
+        end
+        if not ok then return false, err or ('Cannot save locale: ' .. entry.name) end
     end
     return true
 end

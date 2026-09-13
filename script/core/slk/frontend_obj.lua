@@ -46,7 +46,7 @@ local function read_data(obj)
         value = bin2float()
     elseif value_type == 3 then
         local str = unpack 'z'
-        value = w2l:load_wts(wts, str)
+        value = w2l:load_localized_wts(wts, str)
     end
 
     -- 扔掉4个字节

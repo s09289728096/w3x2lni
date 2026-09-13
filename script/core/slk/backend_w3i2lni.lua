@@ -1,4 +1,5 @@
 local lang = require 'lang'
+local locale_util = require 'locale_util'
 
 local table_concat = table.concat
 local type = type
@@ -13,6 +14,9 @@ end
 
 local function format_value(value)
     local tp = type(value)
+    if tp == 'table' and locale_util.is_localized_table(value) then
+        return locale_util.format_localized_value(value, '')
+    end
     if tp == 'string' then
         if value:match '[\n\r]' then
             return ('[=[\r\n%s]=]'):format(value)
@@ -51,6 +55,10 @@ end
 function mt:value(name)
     local value = self._title[name]
     if not value then
+        return
+    end
+    if type(value) == 'table' and locale_util.is_localized_table(value) then
+        self:add('%s = %s', name, locale_util.format_localized_value(value, ''))
         return
     end
     if type(value) == 'table' then

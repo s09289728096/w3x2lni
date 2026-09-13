@@ -1,5 +1,6 @@
 local lang = require 'lang'
 local convertreal = require 'convertreal'
+local locale_util = require 'locale_util'
 local table_insert = table.insert
 local table_sort = table.sort
 local math_type = math.type
@@ -24,7 +25,7 @@ local function get_len(tbl)
     return n
 end
 
-local function format_value(tp, value)
+local function format_value(tp, value, indent)
     if value == nil then
         return 'nil'
     end
@@ -33,6 +34,13 @@ local function format_value(tp, value)
     elseif tp == 1 or tp == 2 then
         return convertreal(value)
     elseif tp == 3 then
+        if type(value) == 'table' then
+            if locale_util.is_localized_table(value) then
+                return locale_util.format_localized_value(value, indent or '', function(s) return w2l:get_editstring(s) end)
+            else
+                return format_value(tp, value[1], indent)
+            end
+        end
         value = w2l:get_editstring(value)
         if value:match '[\n\r]' then
             return ('[=[\r\n%s]=]'):format(value)
@@ -50,6 +58,43 @@ end
 local function write_data(meta, data, lines)
     local len
     local key = meta.field
+    if meta.type == 3 then
+        if meta['repeat'] then
+            if locale_util.has_any_locale(data) then
+                if key:match '[^%w%_]' then
+                    key = ('%q'):format(key)
+                end
+                if meta.displayname then
+                    local comment = w2l:get_editstring(meta.displayname)
+                    lines[#lines+1] = {'-- %s', comment:gsub('^%s*(.-)%s*$', '%1')}
+                end
+                local loc_first = locale_util.to_locale_first(data)
+                lines[#lines+1] = {'%s = %s', key, locale_util.format_localized_value(loc_first, '', function(s) return w2l:get_editstring(s) end)}
+                return
+            end
+        else
+            if locale_util.is_localized_table(data) then
+                if key:match '[^%w%_]' then
+                    key = ('%q'):format(key)
+                end
+                if meta.displayname then
+                    local comment = w2l:get_editstring(meta.displayname)
+                    lines[#lines+1] = {'-- %s', comment:gsub('^%s*(.-)%s*$', '%1')}
+                end
+                local clean_data = {}
+                for k, v in pairs(data) do
+                    if type(v) == 'table' and #v == 1 and not locale_util.is_localized_table(v) then
+                        clean_data[k] = v[1]
+                    else
+                        clean_data[k] = v
+                    end
+                end
+                lines[#lines+1] = {'%s = %s', key, locale_util.format_localized_value(clean_data, '', function(s) return w2l:get_editstring(s) end)}
+                return
+            end
+        end
+    end
+
     if type(data) == 'table' then
         len = get_len(data)
         if len == 0 then
@@ -76,9 +121,9 @@ local function write_data(meta, data, lines)
     local is_string = meta.type == 3
     for i = 1, len do
         if len >= 10 then
-            values[i] = ('%d = %s'):format(i, format_value(meta.type, data[i]))
+            values[i] = ('%d = %s'):format(i, format_value(meta.type, data[i], '    '))
         else
-            values[i] = format_value(meta.type, data[i])
+            values[i] = format_value(meta.type, data[i], '    ')
         end
     end
 

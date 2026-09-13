@@ -180,6 +180,35 @@ function mt:load_wts(wts, content, max, reason, fmter)
     return str
 end
 
+function mt:load_localized_wts(wts, content, max, reason, fmter)
+    local def_val = self:load_wts(wts, content, max, reason, fmter)
+    if not (self.slk and self.slk.wts_locales and next(self.slk.wts_locales)) then
+        return def_val
+    end
+    if type(content) ~= 'string' or not content:find('TRIGSTR_', 1, true) then
+        return def_val
+    end
+    local locale_util = require 'locale_util'
+    local has_diff = false
+    local loc_texts = {}
+    for lcid, loc_wts in pairs(self.slk.wts_locales) do
+        local loc_val = self:load_wts(loc_wts, content, max, reason, fmter)
+        if loc_val and loc_val ~= def_val then
+            has_diff = true
+            local tag = locale_util.lcid_to_tag(lcid)
+            loc_texts[tag] = loc_val
+        end
+    end
+    if has_diff then
+        local res = { [1] = def_val }
+        for tag, t in pairs(loc_texts) do
+            res[tag] = t
+        end
+        return res
+    end
+    return def_val
+end
+
 function mt:save_wts(wts, text, reason)
     self.messager.report(lang.report.TEXT_IN_WTS, 7, reason, ('%s\r\n%s...\r\n-------------------------'):format(lang.report.TEXT_IN_WTS_HINT, text:sub(1, 1000)))
     if text:find('}', 1, false) then
@@ -191,6 +220,29 @@ function mt:save_wts(wts, text, reason)
     return ('TRIGSTR_%03d'):format(index-1)
 end
 
+function mt:save_localized_wts(wts, default_text, localized_map, reason)
+    default_text = default_text or ''
+    if default_text:find('}', 1, false) then
+        self.messager.report(lang.report.WARN, 2, lang.report.WTS_NEED_ESCAPE, default_text:sub(1, 1000))
+        default_text = default_text:gsub('}', '|')
+    end
+    local index = #wts.mark + 1
+    wts.mark[index] = default_text
+    if localized_map then
+        wts.locale_marks = wts.locale_marks or {}
+        for lcid, text in pairs(localized_map) do
+            if type(text) == 'string' then
+                if text:find('}', 1, false) then
+                    text = text:gsub('}', '|')
+                end
+                wts.locale_marks[lcid] = wts.locale_marks[lcid] or {}
+                wts.locale_marks[lcid][index] = text
+            end
+        end
+    end
+    return ('TRIGSTR_%03d'):format(index-1)
+end
+
 function mt:refresh_wts(wts)
     if not wts then
         return
@@ -198,6 +250,19 @@ function mt:refresh_wts(wts)
     local lines = {}
     for index, text in ipairs(wts.mark) do
         lines[#lines+1] = ('STRING %d\r\n{\r\n%s\r\n}'):format(index-1, text)
+    end
+    return table.concat(lines, '\r\n\r\n')
+end
+
+function mt:refresh_locale_wts(wts, lcid)
+    if not wts or not wts.mark then
+        return nil
+    end
+    local locale_table = wts.locale_marks and wts.locale_marks[lcid]
+    local lines = {}
+    for index, text in ipairs(wts.mark) do
+        local loc_text = (locale_table and locale_table[index]) or text
+        lines[#lines+1] = ('STRING %d\r\n{\r\n%s\r\n}'):format(index-1, loc_text)
     end
     return table.concat(lines, '\r\n\r\n')
 end
@@ -305,6 +370,9 @@ function mt:save()
     local count = 0
     for _ in pairs(self.input_ar) do
         count = count + 1
+    end
+    if self.input_ar.localized_count then
+        count = count + self.input_ar:localized_count()
     end
     if count ~= total then
         self.messager.report(lang.report.ERROR, 1, lang.report.FILE_LOST:format(total - count), lang.report.FILE_LOST_HINT)

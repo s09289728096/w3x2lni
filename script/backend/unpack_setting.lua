@@ -86,6 +86,17 @@ return function (w2l, mode)
             setting[k] = v
         end
     end
+    for k, v in pairs(command) do
+        if type(k) == 'string' then
+            if v == 'true' or v == 1 or v == '1' then
+                setting[k] = true
+            elseif v == 'false' or v == 0 or v == '0' then
+                setting[k] = false
+            else
+                setting[k] = v
+            end
+        end
+    end
     setting.input = input
     setting.output = output
 

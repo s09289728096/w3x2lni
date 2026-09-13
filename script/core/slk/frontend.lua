@@ -26,7 +26,7 @@ local function load_slk(w2l)
     if w2l.force_slk then
         w2l.messager.report(lang.report.OTHER, 9, lang.report.FORCE_READ_SLK)
     end
-    if (w2l.force_slk or w2l.setting.read_slk) and has_slk(w2l) then
+    if w2l.force_slk or w2l.setting.read_slk or has_slk(w2l) then
         return w2l:frontend_buildslk(true)
     else
         return w2l:get_default(true)
@@ -184,6 +184,18 @@ return function(w2l_, slk)
     w2l.slk = slk
     --读取字符串
     slk.wts = w2l:frontend_wts(w2l:file_load('map', 'war3map.wts'))
+    slk.wts_locales = {}
+    if w2l.input_ar and w2l.input_ar.locales then
+        local locales = w2l.input_ar:locales('war3map.wts')
+        for _, lcid in ipairs(locales) do
+            if lcid ~= 0 then
+                local buf = w2l.input_ar:load_locale('war3map.wts', lcid)
+                if buf then
+                    slk.wts_locales[lcid] = w2l:frontend_wts(buf)
+                end
+            end
+        end
+    end
     w2l.progress(0.2)
 
     slk.w3i = load_w3i(w2l, slk)

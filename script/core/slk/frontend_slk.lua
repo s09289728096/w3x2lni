@@ -236,6 +236,53 @@ local function txt_read(table, txt, keys, meta)
     end
 end
 
+local function txt_read_locales(table, txt_locales, keys, meta)
+    if not next(txt_locales) then return end
+    local locale_util = require 'locale_util'
+    for lcid, loc_txt in pairs(txt_locales) do
+        local tag = locale_util.lcid_to_tag(lcid)
+        for name, obj in pairs(table) do
+            local lname = string_lower(name)
+            local loc_data = loc_txt[lname]
+            if loc_data then
+                for i = 1, #keys do
+                    local key = keys[i]
+                    local m = meta[i]
+                    if m.type == 3 and obj[key] then
+                        local temp_obj = {}
+                        txt_read_data(lname, temp_obj, key, m, loc_data)
+                        local loc_val = temp_obj[key]
+                        local def_val = obj[key]
+                        if loc_val ~= nil and def_val ~= nil then
+                            if m['repeat'] and type(def_val) == 'table' and type(loc_val) == 'table' then
+                                for lvl = 1, math.max(#def_val, #loc_val) do
+                                    local dl = def_val[lvl]
+                                    local ll = loc_val[lvl]
+                                    if ll and ll ~= '' and dl and ll ~= dl then
+                                        if type(dl) == 'table' then
+                                            dl[tag] = ll
+                                        else
+                                            def_val[lvl] = { [1] = dl, [tag] = ll }
+                                        end
+                                    end
+                                end
+                            elseif type(def_val) == 'string' and type(loc_val) == 'string' then
+                                if loc_val ~= '' and loc_val ~= def_val then
+                                    obj[key] = { [1] = def_val, [tag] = loc_val }
+                                end
+                            elseif type(def_val) == 'table' and type(loc_val) == 'string' then
+                                if loc_val ~= '' then
+                                    def_val[tag] = loc_val
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function slk_misc(table, misc, txt)
     for name, meta in pairs(metadata) do
         if meta.type == 'misc' then
@@ -310,6 +357,21 @@ return function(w2l_, loader)
     for _, filename in pairs(w2l.info.misc) do
         w2l:parse_txt(loader(filename), filename, misc)
     end
+    local txt_locales = {}
+    if w2l.input_ar and w2l.input_ar.locales then
+        for _, filename in pairs(w2l.info.txt) do
+            local locs = w2l.input_ar:locales(filename)
+            for _, lcid in ipairs(locs) do
+                if lcid ~= 0 then
+                    txt_locales[lcid] = txt_locales[lcid] or {}
+                    local buf = w2l.input_ar:load_locale(filename, lcid)
+                    if buf then
+                        w2l:parse_txt(buf, filename, txt_locales[lcid])
+                    end
+                end
+            end
+        end
+    end
     w2l.progress:finish()
 
     local count = 0
@@ -349,6 +411,7 @@ return function(w2l_, loader)
                 meta[#meta+1] = metadata[type][key]
             end
             txt_read(datas[type], txt, keys, meta)
+            txt_read_locales(datas[type], txt_locales, keys, meta)
         end
         count = count + 1
         w2l.progress(count / 8)

@@ -7,6 +7,8 @@ local pairs = pairs
 local type = type
 local assert = assert
 
+local locale_util = require 'locale_util'
+
 local function maxindex(t)
     local i = 0
     for k in pairs(t) do
@@ -18,6 +20,10 @@ local function maxindex(t)
 end
 
 local function fill_and_copy(a, lv)
+    local has_locale = locale_util.has_any_locale(a)
+    if has_locale then
+        a = locale_util.normalize_repeated_data(a)
+    end
     local c = {}
     if #a < lv then
         for i = 1, #a do
@@ -39,10 +45,18 @@ local function fill_and_copy(a, lv)
             end
         end
     end
+    if has_locale then
+        return locale_util.to_locale_first(c)
+    end
     return c
 end
 
 local function fill_and_merge(a, b, lv, meta)
+    local has_locale = locale_util.has_any_locale(a) or locale_util.has_any_locale(b)
+    if has_locale then
+        a = locale_util.normalize_repeated_data(a)
+        b = locale_util.normalize_repeated_data(b)
+    end
     local c = {}
     if #a < lv then
         for i = 1, #a do
@@ -79,10 +93,23 @@ local function fill_and_merge(a, b, lv, meta)
             end
         end
     end
+    if has_locale then
+        return locale_util.to_locale_first(c)
+    end
     return c
 end
 
-local function copy_obj(a, b)
+local function get_meta(code, ttype, k)
+    if code and metadata[code] and metadata[code][k] then
+        return metadata[code][k]
+    end
+    if ttype and metadata[ttype] and metadata[ttype][k] then
+        return metadata[ttype][k]
+    end
+    return nil
+end
+
+local function copy_obj(a, b, ttype)
     local c = {}
     local lv = tonumber(b._max_level or a._max_level)
     if lv and lv > 10000 then
@@ -93,16 +120,25 @@ local function copy_obj(a, b)
         return nil
     end
     for k, v in pairs(a) do
+        local meta = get_meta(b._code or a._code, ttype or a._type or b._type, k)
         if b[k] then
             if type(v) == 'table' then
-                c[k] = fill_and_merge(v, b[k], lv, metadata[a._code] and metadata[a._code][k] or metadata[a._type] and metadata[a._type][k])
+                if meta and not meta['repeat'] and locale_util.is_localized_table(b[k]) then
+                    c[k] = b[k]
+                else
+                    c[k] = fill_and_merge(v, b[k], lv, meta)
+                end
             else
                 c[k] = b[k]
             end
             b[k] = nil
         else
             if type(v) == 'table' then
-                c[k] = fill_and_copy(v, lv)
+                if meta and not meta['repeat'] and locale_util.is_localized_table(v) then
+                    c[k] = v
+                else
+                    c[k] = fill_and_copy(v, lv)
+                end
             else
                 c[k] = v
             end
@@ -115,15 +151,20 @@ local function copy_obj(a, b)
     return c
 end
 
-local function fill_obj(a)
+local function fill_obj(a, ttype)
     local c = {}
     local lv = a._max_level
     if lv and lv > 10000 then
         lv = 10000
     end
     for k, v in pairs(a) do
+        local meta = get_meta(a._code, ttype or a._type, k)
         if type(v) == 'table' then
-            c[k] = fill_and_copy(v, lv)
+            if meta and not meta['repeat'] and locale_util.is_localized_table(v) then
+                c[k] = v
+            else
+                c[k] = fill_and_copy(v, lv)
+            end
         else
             c[k] = v
         end
@@ -150,14 +191,14 @@ return function (w2l_, type, data, objs)
             source = template[obj._parent] or data[obj._parent]
         end
         if source then
-            result[name] = copy_obj(source, obj)
+            result[name] = copy_obj(source, obj, type)
         else
             assert(type == 'txt')
             result[name] = obj
         end
     end
     for name, obj in pairs(data) do
-        result[name] = fill_obj(obj)
+        result[name] = fill_obj(obj, type)
     end
     return result
 end

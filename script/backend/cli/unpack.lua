@@ -137,6 +137,7 @@ local function load_file(input_ar, output_ar)
     for _ in pairs(output_ar) do
         count = count + 1
     end
+    count = count + input_ar:localized_count()
 
     if count ~= input_ar:number_of_files() then
         return false, lang.script.NEED_LIST_FILE

@@ -38,6 +38,8 @@ ffi.cdef[[
     bool SFileGetFileInfo(uint32_t hMpqOrFile, int InfoClass, void * pvFileInfo, unsigned long cbFileInfo, unsigned long* pcbLengthNeeded);
 
     unsigned long SFileGetLocale();
+    unsigned long SFileSetLocale(unsigned long lcLocale);
+    unsigned long SFileEnumLocales(uint32_t hMpq, const char* name, unsigned long* locales, unsigned long* count, unsigned long scope);
 
     unsigned long GetLastError();
 ]]
@@ -85,8 +87,9 @@ function wfile:close()
     if self.handle == 0 then
         return
     end
-    stormlib.SFileFinishFile(self.handle)
+    local success = stormlib.SFileFinishFile(self.handle)
     self.handle = 0
+    return success
 end
 
 function wfile:write(buf)
@@ -183,18 +186,52 @@ function archive:remove_file(name)
     return stormlib.SFileRemoveFile(self.handle, name, 0)
 end
 
-function archive:open_file(name)
+function archive:locales(name)
+    if self.handle == 0 or name == '' then return {} end
+    local count = ffi.new('unsigned long[1]', 0)
+    local result = stormlib.SFileEnumLocales(self.handle, name, nil, count, 0)
+    if result == 2 then
+        return {}
+    end
+    assert(result == 0 or result == 122, 'Cannot enumerate MPQ locales: ' .. name)
+    if count[0] == 0 then return {} end
+    local values = ffi.new('unsigned long[?]', count[0])
+    assert(stormlib.SFileEnumLocales(self.handle, name, values, count, 0) == 0,
+        'Cannot enumerate MPQ locales: ' .. name)
+    local locales, seen = {}, {}
+    for i = 0, count[0] - 1 do
+        local locale = tonumber(values[i])
+        assert(not seen[locale], 'Duplicate MPQ name/locale: ' .. name)
+        seen[locale] = true
+        locales[#locales+1] = locale
+    end
+    table.sort(locales)
+    return locales
+end
+
+function archive:open_file(name, locale)
     if self.handle == 0 then
         return nil
     end
     local phandle = ffi.new('uint32_t[1]', 0)
-    if not stormlib.SFileOpenFileEx(self.handle, name, 0, phandle) then
+    if locale ~= nil then
+        local found = false
+        for _, value in ipairs(self:locales(name)) do
+            if value == locale then found = true end
+        end
+        if not found then return nil end
+    end
+    local previous = stormlib.SFileGetLocale()
+    if locale ~= nil then stormlib.SFileSetLocale(locale) end
+    local success = stormlib.SFileOpenFileEx(self.handle, name, 0, phandle)
+    stormlib.SFileSetLocale(previous)
+    if not success then
         return nil
     end
     return setmetatable({ handle = phandle[0] }, rfile)
 end
 
-function archive:create_file(name, size, filetime)
+function archive:create_file(name, size, filetime, locale)
     if self.handle == 0 then
         return nil
     end
@@ -202,17 +239,17 @@ function archive:create_file(name, size, filetime)
         filetime = current_filetime()
     end
     local phandle = ffi.new('uint32_t[1]', 0)
-    if not stormlib.SFileCreateFile(self.handle, name, filetime, size, stormlib.SFileGetLocale(), 0x00000200 | 0x80000000, phandle) then
+    if not stormlib.SFileCreateFile(self.handle, name, filetime, size, locale or stormlib.SFileGetLocale(), 0x00000200 | 0x80000000, phandle) then
         return nil
     end
     return setmetatable({ handle = phandle[0] }, wfile)
 end
 
-function archive:load_file(name)
+function archive:load_file(name, locale)
     if self.handle == 0 then
         return nil
     end
-    local file = self:open_file(name)
+    local file = self:open_file(name, locale)
     if not file then
         return nil
     end
@@ -221,17 +258,17 @@ function archive:load_file(name)
     return content
 end
 
-function archive:save_file(name, buf, filetime)
+function archive:save_file(name, buf, filetime, locale)
     if self.handle == 0 then
         return false
     end
-    local file = self:create_file(name, #buf, filetime)
+    local file = self:create_file(name, #buf, filetime, locale)
     if not file then
         return false
     end
-    file:write(buf)
-    file:close()
-    return true
+    local success = file:write(buf)
+    local finished = file:close()
+    return success and finished
 end
 
 function archive:number_of_files()
