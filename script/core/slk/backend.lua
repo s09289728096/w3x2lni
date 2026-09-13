@@ -81,6 +81,10 @@ local function convert_wtg(w2l)
             w2l:file_remove('trigger', filename)
         end
         w2l:file_remove('w3x2lni', 'version\\lml')
+        if #filenames == 0 then
+            wtg_data = nil
+            wct_data = nil
+        end
     end
     w2l.progress:finish()
     w2l.progress:start(1)

@@ -184,8 +184,12 @@ local function add_data(obj, meta, value, keyval, loc_tag)
         return
     end
     if meta.concat then
-        if value and value ~= 0 then
-            keyval[#keyval+1] = {key, value}
+        local item = get_text_for_locale(value, loc_tag)
+        if type(item) == 'table' then
+            item = table_concat(item, ',')
+        end
+        if item and item ~= 0 and item ~= '' then
+            keyval[#keyval+1] = {key, item}
         end
         return
     end
@@ -281,10 +285,16 @@ local function stringify_obj(str, obj, txt_obj, loc_tag)
     for _, kv in ipairs(keyval) do
         local key, val = kv[1], kv[2]
         if val ~= '' then
+            if type(val) == 'table' then
+                val = get_text_for_locale(val, loc_tag)
+                if type(val) == 'table' then
+                    val = table_concat(val, ',')
+                end
+            end
             if type(val) == 'string' then
                 val = val:gsub('\r\n', '|n'):gsub('[\r\n]', '|n')
             end
-            str[#str+1] = key .. '=' .. val
+            str[#str+1] = key .. '=' .. tostring(val)
             empty = false
         end
     end
