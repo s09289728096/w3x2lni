@@ -89,14 +89,25 @@ function m.get_default_text(val)
         return val
     end
     if val[1] ~= nil then
+        if type(val[1]) == 'table' then
+            return m.get_default_text(val[1])
+        end
         return val[1]
     end
     if val['default'] ~= nil then
+        if type(val['default']) == 'table' then
+            return m.get_default_text(val['default'])
+        end
         return val['default']
     end
     for k, v in pairs(val) do
-        if type(v) == 'string' or type(v) == 'table' then
+        if type(v) == 'string' then
             return v
+        elseif type(v) == 'table' then
+            local res = m.get_default_text(v)
+            if type(res) == 'string' and res ~= '' then
+                return res
+            end
         end
     end
     return ''
@@ -182,11 +193,20 @@ function m.normalize_repeated_data(data)
     -- Case 1: Locale-first table, e.g. { [1] = { "def1", "def2" }, zhTW = { "tw1", "tw2" } }
     if m.is_localized_table(data) then
         local def_list = data[1] or data['default']
-        if type(def_list) == 'table' then
+        local has_table_loc = false
+        for _, loc in ipairs(m.get_locales(data)) do
+            if type(loc.text) == 'table' then
+                has_table_loc = true
+                break
+            end
+        end
+        if type(def_list) == 'table' or has_table_loc then
             local max_level = 0
-            for k in pairs(def_list) do
-                if type(k) == 'number' and k > max_level then
-                    max_level = k
+            if type(def_list) == 'table' then
+                for k in pairs(def_list) do
+                    if type(k) == 'number' and k > max_level then
+                        max_level = k
+                    end
                 end
             end
             for _, loc in ipairs(m.get_locales(data)) do
@@ -200,7 +220,8 @@ function m.normalize_repeated_data(data)
             end
             local levels = {}
             for lvl = 1, max_level do
-                local lvl_table = { [1] = def_list and def_list[lvl] }
+                local def_val = (type(def_list) == 'table' and def_list[lvl]) or (type(def_list) == 'string' and def_list) or ''
+                local lvl_table = { [1] = def_val }
                 local has_loc = false
                 for _, loc in ipairs(m.get_locales(data)) do
                     if type(loc.text) == 'table' and loc.text[lvl] ~= nil then

@@ -5,6 +5,7 @@ local lml = require 'lml'
 local progress = require 'progress'
 local lang = require 'lang'
 local proxy = require 'proxy'
+local locale_util = require 'locale_util'
 local slk = w3xparser.slk
 local txt = w3xparser.txt
 local ini = w3xparser.ini
@@ -79,6 +80,12 @@ function mt:isreforge()
 end
 
 function mt:get_editstring(source)
+    if type(source) == 'table' then
+        source = locale_util.get_default_text(source)
+    end
+    if type(source) ~= 'string' then
+        source = tostring(source or '')
+    end
     local str = source:upper()
     if str:sub(1, 9) ~= 'WESTRING_' then
         return source
@@ -221,7 +228,9 @@ function mt:save_wts(wts, text, reason)
 end
 
 function mt:save_localized_wts(wts, default_text, localized_map, reason)
-    default_text = default_text or ''
+    if type(default_text) ~= 'string' then
+        default_text = tostring(default_text or '')
+    end
     if default_text:find('}', 1, false) then
         self.messager.report(lang.report.WARN, 2, lang.report.WTS_NEED_ESCAPE, default_text:sub(1, 1000))
         default_text = default_text:gsub('}', '|')
@@ -400,11 +409,14 @@ function mt:get_displayname(o)
     if o._type == 'buff' then
         name = o.bufftip or o.editorname or ''
     elseif o._type == 'upgrade' then
-        name = o.name[1] or ''
+        name = o.name and (o.name[1] or o.name) or ''
     elseif o._type == 'doodad' or o._type == 'destructable' then
         name = self:get_editstring(o.name or '')
     else
         name = o.name or ''
+    end
+    if type(name) == 'table' then
+        name = locale_util.get_default_text(name)
     end
     return displaytype[o._type], o._id, (tostring(name):sub(1, 100):gsub('\r\n', ' '))
 end

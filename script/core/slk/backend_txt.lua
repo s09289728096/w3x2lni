@@ -370,6 +370,15 @@ local function prebuild_data(obj, key, r)
         end
     end
     if type(obj[key]) == 'table' then
+        if locale_util.has_any_locale(obj[key]) then
+            if check_string(obj[key]) then
+                report_failed(obj, meta.field, lang.report.TEXT_CANT_ESCAPE_IN_TXT, obj[key])
+                object[name][key] = obj[key]
+            else
+                r[key] = obj[key]
+            end
+            return
+        end
         object[name][key] = {}
         local t = {}
         for k, v in pairs(obj[key]) do
