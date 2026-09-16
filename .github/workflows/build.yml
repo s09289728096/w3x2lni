@@ -1,57 +1,100 @@
 name: build
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    permissions:
+      contents: read
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules : recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - uses: actboy168/setup-luamake@master
+      - name: Setup luamake
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $luamakeDir = Join-Path $env:RUNNER_TEMP 'luamake'
 
-    - run: luamake
-    - run: ./bin/w3x2lni-lua.exe make/make.lua ci
-    - uses: actions/upload-artifact@v4
-      with:
-        name: w3x2lni
-        path: |
-          bin
-          data
-          script
-          template
-          config.ini
-          LICENSE.txt
-          README.md
-          w2l.exe
-          w3x2lni.exe
+          git clone https://github.com/actboy168/luamake.git $luamakeDir
+          git -C $luamakeDir checkout --detach 84c5ef379a64ba3ce8b09a9bdb0e28cd75ff317f
+          git -C $luamakeDir submodule update --init --recursive
 
-    - name: Set version from tag
-      if: startsWith(github.ref, 'refs/tags/')
-      id: version
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $version = $env:GITHUB_REF_NAME
-        echo "version=$version" >> $env:GITHUB_OUTPUT
-        echo "VERSION=$version" >> $env:GITHUB_ENV
+          Push-Location $luamakeDir
+          cmd.exe /c compile\build.bat notest
+          Pop-Location
 
-    - name: Create release zip
-      if: startsWith(github.ref, 'refs/tags/')
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $paths = @('bin','data','script','template','config.ini','LICENSE.txt','README.md','w2l.exe','w3x2lni.exe')
-        $dest = "w3x2lni-$env:VERSION.zip"
-        if (Test-Path $dest) { Remove-Item $dest -Force }
-        Compress-Archive -Path $paths -DestinationPath $dest -Force
+          $luamakeDir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-    - name: Publish release assets
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        tag_name: ${{ steps.version.outputs.version }}
-        name: ${{ steps.version.outputs.version }}
-        generate_release_notes: true
-        files: |
-          w3x2lni-${{ steps.version.outputs.version }}.zip
+      - name: Verify luamake path
+        shell: pwsh
+        run: Get-Command luamake
+
+      - name: Build w3x2lni
+        run: luamake
+
+      - name: Build CI package
+        run: ./bin/w3x2lni-lua.exe make/make.lua ci
+
+      # 保留一般 CI 產物，所有 push / PR 都可下載
+      - uses: actions/upload-artifact@v4
+        with:
+          name: w3x2lni
+          path: |
+            bin
+            data
+            script
+            template
+            config.ini
+            LICENSE.txt
+            README.md
+            w2l.exe
+            w3x2lni.exe
+
+      # 僅 tag 時打包發行檔
+      - name: Create release zip
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:GITHUB_REF_NAME
+          $paths = @('bin','data','script','template','config.ini','LICENSE.txt','README.md','w2l.exe','w3x2lni.exe')
+          $dest = "w3x2lni-$version.zip"
+          Compress-Archive -Path $paths -DestinationPath $dest -Force
+
+      # build / release job 不共用磁碟，必須以 artifact 傳遞 ZIP
+      - name: Upload release package
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: w3x2lni-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: dist
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/w3x2lni-${{ github.ref_name }}.zip
