@@ -39,6 +39,10 @@ jobs:
       - name: Build w3x2lni
         run: luamake
 
+      - name: Run i18n integration test
+        working-directory: script
+        run: ../bin/w3x2lni-lua.exe ../test/i18n_integration.lua
+
       - name: Build CI package
         run: ./bin/w3x2lni-lua.exe make/make.lua ci
 
