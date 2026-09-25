@@ -166,5 +166,6 @@ return {
         txt = {'table\\txt.ini', 'war3map.txt.ini'},
         imp = {'table\\imp.ini', 'war3map.imp.ini'},
         doo = {'table\\doo.ini', 'war3map.doo.ini'},
+        skin = {'table\\skin.ini'},
     }
 }
