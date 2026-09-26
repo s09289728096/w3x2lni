@@ -8,8 +8,8 @@
 ## 多語系 (Multi-Locale / i18n) 支援
 
 w3x2lni 支援魔獸爭霸 3 地圖的全方位多語系架構，秉持 **「LNI 即單一真理來源 (Single Source of Truth)」** 的設計：
-- **專案結構乾淨統一**：所有語系翻譯直接於 `table/*.ini` 與 `table/w3i.ini` 編輯，專案目錄下**完全不產生或依賴任何 `locales/` 目錄或 SLK 碎片**。
-- **自動產出 MPQ 多語系結構**：轉為 OBJ 地圖時，自動生成各語系 LCID 的 `war3map.wts` 並配發 `TRIGSTR_`；轉為 SLK 地圖時，自動為各語系產出專屬的 `Units/*Strings.txt` 與 `war3map.wts`。
+- **專案結構乾淨統一**：所有語系翻譯直接於 `table/*.ini`、`table/w3i.ini` 與 `table/skin.ini` 編輯，專案目錄下**完全不產生或依賴任何 `locales/` 目錄或 SLK 碎片**。
+- **自動產出 MPQ 多語系結構**：轉為 OBJ 地圖時，自動生成各語系 LCID 的 `war3map.wts` 並配發 `TRIGSTR_`；轉為 SLK 地圖時，自動為各語系產出專屬的 `Units/*Strings.txt` 與 `war3map.wts`。兩種模式都會為各語系產出專屬的 `war3mapskin.txt`。
 - **支援無損雙向轉換**：支援 `LNI <-> OBJ` 與 `LNI <-> SLK` 雙向 round-trip，語系資料不失真。
 
 ### 1. 語法教學 (Syntax Guide)
@@ -92,6 +92,23 @@ Throws a magical hammer that damages and stuns the target.|n|n|cffffcc00Level 2|
 }
 ```
 
+#### (4) 遊戲介面 (`table/skin.ini`)
+`war3mapskin.txt`（WE 的「遊戲介面」）在 LNI 專案中以 `table/skin.ini` 保存，section 與 key 同 `war3mapskin.txt`，值為字串或語系表格：
+
+```ini
+[FrameDef]
+BONUS_HITPOINTS = {
+    " - 該能力每提高1點，會增加18點HP",
+    enUS = " - Each point increases HP by 18",
+    koKR = " - 능력치 1당 체력 18 증가",
+}
+UPKEEP_NONE = "|Cff00ff00My Map"
+```
+
+- 出圖時預設值寫入中立的 `war3mapskin.txt`，每個出現過的語系再各寫一份完整的 `war3mapskin.txt`（指定該 LCID，未翻譯的 key 沿用預設值）。遊戲會依客戶端語系挑選，與 `war3map.wts` 相同。
+- 與預設值相同的語系值在轉回 LNI 時會被省略；只有語系值、沒有預設值的 key（如 `{ enUS = "..." }`）只寫進該語系的檔案。
+- `table/skin.ini` 存在時是唯一來源，`map/war3mapskin.txt` 會被忽略並移除；沒有 `table/skin.ini` 的舊專案仍照舊讀取 `map/war3mapskin.txt`。
+
 ### 2. 支援的語系標籤 (Supported Locale Tags)
 
 | 語系標籤 (Tag) | Windows LCID | 語系說明 |
@@ -112,11 +129,11 @@ Throws a magical hammer that damages and stuns the target.|n|n|cffffcc00Level 2|
 ### 3. 打包與轉換運作機制
 
 - **LNI 模式 (`w2l lni`)**：
-  不論輸入地圖為 OBJ 或 SLK 格式，皆動態比對所有語系分區（`war3map.wts`、`Units/*Strings.txt`），將差異直接整合為 LNI 語系表格。**LNI 專案目錄下完全不建立 `locales/` 資料夾**。
+  不論輸入地圖為 OBJ 或 SLK 格式，皆動態比對所有語系分區（`war3map.wts`、`Units/*Strings.txt`、`war3mapskin.txt`），將差異直接整合為 LNI 語系表格。**LNI 專案目錄下完全不建立 `locales/` 資料夾**。
 - **OBJ 模式 (`w2l obj`)**：
-  為所有帶語系差異的字串分配 `TRIGSTR_xxx`，並於輸出的 MPQ 中為各語系建立專屬的 `war3map.wts`（分別指定對應的 LCID）。
+  為所有帶語系差異的字串分配 `TRIGSTR_xxx`，並於輸出的 MPQ 中為各語系建立專屬的 `war3map.wts` 與 `war3mapskin.txt`（分別指定對應的 LCID）。
 - **SLK 模式 (`w2l slk`)**：
-  將語系字串分別寫入各 LCID 的 `Units/*Strings.txt` 與 `war3map.wts`。若欲保留 `(listfile)` 便於後續轉回 LNI，可加上 `-remove_we_only=false`。
+  將語系字串分別寫入各 LCID 的 `Units/*Strings.txt`、`war3map.wts` 與 `war3mapskin.txt`。若欲保留 `(listfile)` 便於後續轉回 LNI，可加上 `-remove_we_only=false`。
 - **單語系相容性**：
   未標註語系的純字串完全相容於既有行為，既有地圖無損轉換。
 

@@ -1,4 +1,5 @@
 local lang = require 'lang'
+local locale_util = require 'locale_util'
 local os_clock = os.clock
 local w2l
 
@@ -337,6 +338,33 @@ local function clean_file(w2l, slk)
     w2l:file_remove('table', 'doo')
 end
 
+-- One war3mapskin.txt per translated LCID, packed like the war3map.wts ones.
+local function save_skin_locales(w2l, slk, skin, neutral)
+    local lcids, seen = {}, {}
+    for _, section in pairs(skin) do
+        for _, value in pairs(section) do
+            for _, loc in ipairs(locale_util.get_locales(value)) do
+                if not seen[loc.lcid] then
+                    seen[loc.lcid] = true
+                    lcids[#lcids+1] = loc.lcid
+                end
+            end
+        end
+    end
+    table.sort(lcids)
+    for _, lcid in ipairs(lcids) do
+        local buf = w2l:backend_skin(skin, lcid)
+        if buf ~= neutral then
+            slk.localized_files = slk.localized_files or {}
+            slk.localized_files[#slk.localized_files+1] = {
+                name = 'war3mapskin.txt',
+                locale = lcid,
+                buf = buf,
+            }
+        end
+    end
+end
+
 return function (w2l_, slk)
     w2l = w2l_
     slk = slk or w2l.slk or {}
@@ -405,10 +433,15 @@ return function (w2l_, slk)
     w2l.progress(0.9)
 
     w2l.messager.text(lang.script.CONVERT_OTHER)
-    local buf = w2l:file_load('map', 'war3mapskin.txt')
-    if buf then
-        local skin = w2l:parse_ini(buf)
-        w2l:file_save('map', 'war3mapskin.txt', w2l:backend_skin(skin, slk.wts))
+    local skin = w2l:frontend_skin(slk.wts)
+    if skin then
+        if w2l.setting.mode == 'lni' then
+            w2l:file_save('table', 'skin', w2l:backend_skinlni(skin))
+        else
+            local neutral = w2l:backend_skin(skin)
+            w2l:file_save('map', 'war3mapskin.txt', neutral)
+            save_skin_locales(w2l, slk, skin, neutral)
+        end
     end
     w2l.progress(0.92)
 
